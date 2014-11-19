@@ -39,7 +39,8 @@ public class LetSniff {
 				
 				JpcapCaptor captor =  JpcapCaptor.openDevice(intrf, 16384, true, 0);
 				sender = JpcapSender.openDevice(intrf);
-				captor.setFilter(exp, true);
+				if (exp!=null)
+					captor.setFilter(exp, true);
 				Sniffer sniff = new Sniffer();
 				sniff.setUrl(pattern);
 				sniff.setIfs(intrf);
@@ -80,10 +81,9 @@ public class LetSniff {
 			
 			
 		}
+		if (pattern==null) {showHelp(); return false;}
 		if (ifs==null) {showHelp(); return false;}
 		if (fileToIn==null) {showHelp(); return false;}
-		if (pattern==null) {showHelp(); return false;}
-		if (exp==null) {showHelp(); return false;}
 		
 		return true;
 		
@@ -94,10 +94,16 @@ public class LetSniff {
 		System.out.println("Using: java -jar TCPsniff.jar -i [ifs] -f [path_to_file] -p [pattern] -e [pcap expression] -n [except pattern] -l");
 		System.out.println("\t -i [ifs] : Listen on interface named 'ifs'");
 		System.out.println("\t -f [path_to_file] : When packet meet the pattern this file will be injected");
-		System.out.println("\t -p [pattern] : Regular expression");
-		System.out.println("\t -e ['pcap expression'] : pcap packet filter");
+		System.out.println("\t -p ['pattern'] : Regular expression");
+		System.out.println("\t -e ['pcap expression'] : pcap packet filter (optional)");
 		System.out.println("\t -n ['Except pattern'] : Packets that well meet this pattern will be ignored (optional)");
 		System.out.println("\t -l : Verbose mode (optional)");
+		
+		System.out.println();
+		System.out.println("created by Aleksandr Zhupanov");
+		System.out.println("           exception.box@gmail.com");
+		System.out.println();
+		System.out.println("Have a nice day!");
 		
 		
 	}

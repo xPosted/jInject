@@ -28,14 +28,14 @@ import jpcap.packet.IPPacket;
 import jpcap.packet.Packet;
 import jpcap.packet.TCPPacket;
 
-public class Sniffer implements PacketReceiver ,Runnable {
+public class Sniffer implements PacketReceiver, Runnable {
 	SimpleDateFormat sdf = new SimpleDateFormat("hh:mm:ss");
-	boolean log=false;;
-	
+	boolean log = false;;
+
 	String urlPattern = null;
 	String noUrlPattern = null;
-	Pattern p=null;
-	Pattern nop=null;
+	Pattern p = null;
+	Pattern nop = null;
 	Matcher m;
 	ArrayList<String> lines = new ArrayList<String>();
 	NetworkInterface ifs = null;
@@ -44,19 +44,18 @@ public class Sniffer implements PacketReceiver ,Runnable {
 	byte[] injectBuf;
 	ByteInputStream byteIn;
 	Scanner scan;
-	Packet arg0; 
+	Packet arg0;
 	JpcapSender sender;
-	
+
 	public Sniffer() {
-		
-		
-		
+
 	}
 
 	@Override
 	public void receivePacket(Packet arg0) {
 		try {
-			Sniffer sn = new Sniffer();
+			if (arg0 instanceof TCPPacket) {
+				Sniffer sn = new Sniffer();
 				sn.setLog(log);
 				sn.setPath(path);
 				sn.setUrl(urlPattern);
@@ -64,21 +63,22 @@ public class Sniffer implements PacketReceiver ,Runnable {
 				sn.setIfs(ifs);
 				sn.setSender(sender);
 				sn.setNoUrlPattern(noUrlPattern);
-				
+
 				exec.submit(sn);
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
-		
 	}
-	private void print(ArrayList<String> lns){
+
+	private void print(ArrayList<String> lns) {
 		for (String line : lns) {
-			System.out.println("\t"+line);
+			System.out.println("\t" + line);
 		}
-		
+
 	}
-	
+
 	private boolean matcher(String in) {
 		m = p.matcher(in);
 		if (m.matches()) {
@@ -86,22 +86,19 @@ public class Sniffer implements PacketReceiver ,Runnable {
 				return true;
 			}
 		}
-			return false;
-	//	return m.matches();
+		return false;
 	}
-	
+
 	private boolean nomatcher(String in) {
-		if (noUrlPattern==null) return false;
+		if (noUrlPattern == null)
+			return false;
 		return nop.matcher(in).matches();
-	
+
 	}
-
-
 
 	public synchronized String getUrl() {
 		return urlPattern;
 	}
-
 
 	public synchronized void setUrl(String url) {
 		p = Pattern.compile(url);
@@ -111,20 +108,23 @@ public class Sniffer implements PacketReceiver ,Runnable {
 	public synchronized NetworkInterface getIfs() {
 		return ifs;
 	}
+
 	public synchronized void setIfs(NetworkInterface ifs) {
 		this.ifs = ifs;
 	}
+
 	public synchronized String getPath() {
 		return path;
 	}
+
 	public synchronized void setPath(String path) {
 		this.path = path;
 		File f = new File(path);
-		injectBuf = new byte[(int)f.length()];
+		injectBuf = new byte[(int) f.length()];
 		try {
 			FileInputStream fin = new FileInputStream(f);
-			Integer count =  fin.read(injectBuf);
-			if (injectBuf.length!=count) {
+			Integer count = fin.read(injectBuf);
+			if (injectBuf.length != count) {
 				System.out.println("\t\t inject file read error");
 			}
 		} catch (FileNotFoundException e) {
@@ -141,7 +141,7 @@ public class Sniffer implements PacketReceiver ,Runnable {
 	}
 
 	public synchronized void setNoUrlPattern(String noUrlPattern) {
-		if (noUrlPattern!=null)
+		if (noUrlPattern != null)
 			nop = Pattern.compile(noUrlPattern);
 		this.noUrlPattern = noUrlPattern;
 	}
@@ -158,33 +158,32 @@ public class Sniffer implements PacketReceiver ,Runnable {
 	public void run() {
 		TCPPacket tcpPack = (TCPPacket) arg0;
 		byte[] buf = tcpPack.data;
-		
+
 		byteIn = new ByteInputStream(buf, buf.length);
 		scan = new Scanner(byteIn);
-		String resLine="";
+		String resLine = "";
 		lines.clear();
 		boolean match = false;
 		while (scan.hasNext()) {
 			String line = scan.nextLine();
 			lines.add(line);
-			resLine=resLine+line;
-			
-			
+			resLine = resLine + line;
+
 		}
-		
+
 		if (matcher(resLine)) {
-			
-			Injector inject = new Injector(sender, tcpPack,injectBuf);
+
+			Injector inject = new Injector(sender, tcpPack, injectBuf);
 			inject.run();
-		//	exec.execute(inject);
-			match=true;
+			// exec.execute(inject);
+			match = true;
 			if (log) {
-				System.out.print("\n\n "+sdf.format(new Date()));
+				System.out.print("\n\n " + sdf.format(new Date()));
 				print(lines);
 			}
-			
-		}	
-		
+
+		}
+
 	}
 
 	public synchronized Packet getArg0() {
@@ -202,6 +201,5 @@ public class Sniffer implements PacketReceiver ,Runnable {
 	public synchronized void setSender(JpcapSender sender) {
 		this.sender = sender;
 	}
-	
 
 }
