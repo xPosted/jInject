@@ -15,6 +15,7 @@ import jpcap.packet.IPPacket;
 import jpcap.packet.TCPPacket;
 
 public class Injector implements Runnable {
+	Integer byteAtTime=1460;  //we can not send at once more data than ethernet packet len
 	Long seq;
 	Long ack;
 	Long tmp;
@@ -46,11 +47,42 @@ public class Injector implements Runnable {
 		}
 		
 	}
+	public void sendACK() {
+		Long tmp_ack=ack+dataLen;
+		Long tmp_seq = seq; 
+		
+		TCPPacket tcpReply = new TCPPacket(srcPort, dstPort, tmp_seq, tmp_ack, false, true, false, false, false, false, false, false, tcp.window, 0);
+		tcpReply.setIPv4Parameter(0,false,false,false,0,false,false,false,0,1010101,100,IPPacket.IPPROTO_TCP,
+					src,dst);
+		tcpReply.data= new byte[0];
+			EthernetPacket getEther = (EthernetPacket) tcp.datalink;
+			EthernetPacket ether=new EthernetPacket();
+			ether.frametype=EthernetPacket.ETHERTYPE_IP;
+			ether.src_mac= getEther.dst_mac;
+			ether.dst_mac= getEther.src_mac;
+			tcpReply.datalink=ether;
+		sender.sendPacket(tcpReply);
+		
+	}
 	
-	public void send(byte[] buf) { 
-		ack=ack+dataLen;
-		TCPPacket tcpReply = new TCPPacket(srcPort, dstPort, seq, ack, false, true, true, false, false, false, false, false, buf.length, 0);
-		tcpReply.setIPv4Parameter(0,false,false,false,0,false,false,false,1460,1010101,100,IPPacket.IPPROTO_TCP,
+	public void sendRST() {
+		TCPPacket tcpReply = new TCPPacket(dstPort, srcPort, ack+tcp.data.length, seq, false, true, true, true, false, false, false, false, tcp.window, 0);
+		tcpReply.setIPv4Parameter(0,false,false,false,0,false,false,false,0,1010101,100,IPPacket.IPPROTO_TCP,
+					dst,src);
+		tcpReply.data="fuck_off".getBytes();
+			EthernetPacket getEther = (EthernetPacket) tcp.datalink;
+			EthernetPacket ether=new EthernetPacket();
+			ether.frametype=EthernetPacket.ETHERTYPE_IP;
+			ether.src_mac= getEther.src_mac;
+			ether.dst_mac= getEther.dst_mac;
+			tcpReply.datalink=ether;
+		sender.sendPacket(tcpReply);
+	}
+	
+	public void send(byte[] buf,boolean last) { 
+		
+		TCPPacket tcpReply = new TCPPacket(srcPort, dstPort, seq, ack, false, true, last, false, false, last, false, false, tcp.window, 0); 
+		tcpReply.setIPv4Parameter(0,false,false,false,0,false,false,false,0,1010101,100,IPPacket.IPPROTO_TCP,
 					src,dst);
 		tcpReply.data=buf;
 			EthernetPacket getEther = (EthernetPacket) tcp.datalink;
@@ -59,11 +91,10 @@ public class Injector implements Runnable {
 			ether.src_mac= getEther.dst_mac;
 			ether.dst_mac= getEther.src_mac;
 			tcpReply.datalink=ether;
+						
 		sender.sendPacket(tcpReply);
 		dataLen= buf.length;
-		tmp=seq;
-		seq=ack;
-		ack=seq;
+		seq=seq+dataLen;
 
 		
 	}
@@ -72,14 +103,17 @@ public class Injector implements Runnable {
 	public void run() { 
 			try {
 		// TODO Auto-generated method stub
-		
+	//	sendRST();
+	//	sendACK();
 		ByteInputStream fin = new ByteInputStream(injectBuf,injectBuf.length);
-	
+		boolean last=false;
 		Integer readCount = 0;
-		byte[] buf = new byte[1460];
+		byte[] buf = new byte[byteAtTime];
 		readCount = fin.read(buf);
-		while (readCount==1460) {
-			send(buf);
+		ack=ack+dataLen;
+		while (readCount.equals(byteAtTime)) {
+			if (fin.available()==0) last = true; 
+			send(buf,last);
 			readCount = fin.read(buf);
 		
 		} 
@@ -87,7 +121,7 @@ public class Injector implements Runnable {
 			byte[] smallBuf = new byte[readCount];
 			ByteArrayInputStream bytein = new ByteArrayInputStream(buf);
 			bytein.read(smallBuf);
-			send(smallBuf);
+			send(smallBuf,true);
 		}
 		
 			} catch (Exception e) {
